@@ -2,7 +2,7 @@ import os
 os.environ["PYOPENGL_PLATFORM"] = "egl"
 import subprocess
 import trimesh
-import pyrender
+#import pyrender
 import numpy as np
 from PIL import Image
 import matplotlib.pylab as plt

@@ -10,12 +10,13 @@ from vgn.utils import btsim, workspace_lines
 from vgn.utils.transform import Rotation, Transform
 from vgn.utils.misc import apply_noise, apply_translational_noise
 
+from . import GIGA_ROOT
 
 class ClutterRemovalSim(object):
     def __init__(self, scene, object_set, gui=True, seed=None, add_noise=False, sideview=False, save_dir=None, save_freq=8):
         assert scene in ["pile", "packed"]
 
-        self.urdf_root = Path("data/urdfs")
+        self.urdf_root = GIGA_ROOT / Path("data/urdfs")
         self.scene = scene
         self.object_set = object_set
         self.discover_objects()
@@ -142,7 +143,25 @@ class ClutterRemovalSim(object):
                 self.remove_and_wait()
             attempts += 1
 
-    def acquire_tsdf(self, n, N=None, resolution=40):
+    def get_extrinsics(self, n, N=None):
+        if self.sideview:
+            origin = Transform(Rotation.identity(), np.r_[self.size / 2, self.size / 2, self.size / 3])
+            theta = np.pi / 3.0
+        else:
+            origin = Transform(Rotation.identity(), np.r_[self.size / 2, self.size / 2, 0])
+            theta = np.pi / 6.0
+        r = 2.0 * self.size
+
+        N = N if N else n
+        if self.sideview:
+            assert n == 1
+            phi_list = [- np.pi / 2.0]
+        else:
+            phi_list = 2.0 * np.pi * np.arange(n) / N
+        extrinsics = [camera_on_sphere(origin, r, theta, phi) for phi in phi_list]
+        return extrinsics
+    
+    def acquire_tsdf(self, n, N=None, resolution=40, out_others=False):
         """Render synthetic depth images from n viewpoints and integrate into a TSDF.
 
         If N is None, the n viewpoints are equally distributed on circular trajectory.
@@ -169,6 +188,7 @@ class ClutterRemovalSim(object):
         extrinsics = [camera_on_sphere(origin, r, theta, phi) for phi in phi_list]
 
         timing = 0.0
+        depth_imgs = []
         for extrinsic in extrinsics:
             depth_img = self.camera.render(extrinsic)[1]
 
@@ -179,10 +199,14 @@ class ClutterRemovalSim(object):
             tsdf.integrate(depth_img, self.camera.intrinsic, extrinsic)
             timing += time.time() - tic
             high_res_tsdf.integrate(depth_img, self.camera.intrinsic, extrinsic)
+            depth_imgs.append(depth_img)
+
         bounding_box = o3d.geometry.AxisAlignedBoundingBox(self.lower, self.upper)
         pc = high_res_tsdf.get_cloud()
         pc = pc.crop(bounding_box)
-
+        
+        if out_others:
+            return tsdf, pc, depth_imgs, extrinsics
         return tsdf, pc, timing
 
     def execute_grasp(self, grasp, remove=True, allow_contact=False):
@@ -268,11 +292,11 @@ class Gripper(object):
 
     def __init__(self, world):
         self.world = world
-        self.urdf_path = Path("data/urdfs/panda/hand.urdf")
+        self.urdf_path = GIGA_ROOT / Path("data/urdfs/panda/hand.urdf")
 
         self.max_opening_width = 0.08
         self.finger_depth = 0.05
-        self.T_body_tcp = Transform(Rotation.identity(), [0.0, 0.0, 0.022])
+        self.T_body_tcp = Transform(Rotation.identity(), [0.0, 0.0, 0.022]) 
         self.T_tcp_body = self.T_body_tcp.inverse()
 
     def reset(self, T_world_tcp):
@@ -315,8 +339,8 @@ class Gripper(object):
         )
 
     def set_tcp(self, T_world_tcp):
-        T_word_body = T_world_tcp * self.T_tcp_body
-        self.body.set_pose(T_word_body)
+        T_world_body = T_world_tcp * self.T_tcp_body * Transform(rotation=Rotation.identity(), translation=[0,0,-0.04])
+        self.body.set_pose(T_world_body)
         self.update_tcp_constraint(T_world_tcp)
 
     def move_tcp_xyz(self, target, eef_step=0.002, vel=0.10, abort_on_contact=True):
