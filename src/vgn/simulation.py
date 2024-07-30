@@ -10,13 +10,14 @@ from vgn.utils import btsim, workspace_lines
 from vgn.utils.transform import Rotation, Transform
 from vgn.utils.misc import apply_noise, apply_translational_noise
 
-from . import GIGA_ROOT
+#from . import GIGA_ROOT
+from icra2025 import ROOT
 
 class ClutterRemovalSim(object):
     def __init__(self, scene, object_set, gui=True, seed=None, add_noise=False, sideview=False, save_dir=None, save_freq=8):
         assert scene in ["pile", "packed"]
 
-        self.urdf_root = GIGA_ROOT / Path("data/urdfs")
+        self.urdf_root = ROOT / Path("data/urdfs")
         self.scene = scene
         self.object_set = object_set
         self.discover_objects()
@@ -292,7 +293,7 @@ class Gripper(object):
 
     def __init__(self, world):
         self.world = world
-        self.urdf_path = GIGA_ROOT / Path("data/urdfs/panda/hand.urdf")
+        self.urdf_path = ROOT / Path("data/urdfs/panda/hand.urdf")
 
         self.max_opening_width = 0.08
         self.finger_depth = 0.05
