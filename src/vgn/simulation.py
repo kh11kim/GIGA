@@ -226,7 +226,8 @@ class ClutterRemovalSim(object):
             T_world_retreat = T_world_grasp * T_grasp_retreat
 
         self.gripper.reset(T_world_pregrasp)
-
+        self.gripper.set_tcp(T_world_pregrasp)
+        
         if self.gripper.detect_contact():
             result = Label.FAILURE, self.gripper.max_opening_width
         else:
@@ -304,6 +305,7 @@ class Gripper(object):
         T_world_body = T_world_tcp * self.T_tcp_body
         self.body = self.world.load_urdf(self.urdf_path, T_world_body)
         self.body.set_pose(T_world_body)  # sets the position of the COM, not URDF link
+        
         self.constraint = self.world.add_constraint(
             self.body,
             None,
@@ -325,11 +327,13 @@ class Gripper(object):
             [1.0, 0.0, 0.0],
             Transform.identity(),
             Transform.identity(),
-        ).change(gearRatio=-1, erp=0.1, maxForce=50)
+        ).change(gearRatio=-1, erp=0.1, maxForce=70)
         self.joint1 = self.body.joints["panda_finger_joint1"]
         self.joint1.set_position(0.5 * self.max_opening_width, kinematics=True)
+        self.joint1.effort = 70
         self.joint2 = self.body.joints["panda_finger_joint2"]
         self.joint2.set_position(0.5 * self.max_opening_width, kinematics=True)
+        self.joint2.effort = 70
 
     def update_tcp_constraint(self, T_world_tcp):
         T_world_body = T_world_tcp * self.T_tcp_body
