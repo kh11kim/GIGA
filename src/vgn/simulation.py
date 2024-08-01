@@ -344,7 +344,7 @@ class Gripper(object):
         )
 
     def set_tcp(self, T_world_tcp):
-        T_world_body = T_world_tcp * self.T_tcp_body * Transform(rotation=Rotation.identity(), translation=[0,0,-0.04])
+        T_world_body = T_world_tcp * self.T_tcp_body
         self.body.set_pose(T_world_body)
         self.update_tcp_constraint(T_world_tcp)
 
