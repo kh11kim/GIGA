@@ -41,6 +41,15 @@ class BtWorld(object):
         self.bodies[body.uid] = body
         return body
 
+    def load_obj(self, obj_path, pose, scale=1.0, col_obj_path=None):
+        if col_obj_path is None:
+            col_obj_path = obj_path
+        # the plane don't have mass
+        body = Body.from_obj(self.p, obj_path, pose, scale, col_obj_path)
+        body.name = obj_path.name
+        self.bodies[body.uid] = body
+        return body
+    
     def remove_body(self, body):
         self.p.removeBody(body.uid)
         del self.bodies[body.uid]
@@ -135,6 +144,71 @@ class Body(object):
         )
         return cls(physics_client, body_uid, scale)
 
+    @classmethod
+    def from_obj(cls, pb, obj_filepath, pose, scale, col_obj_filepath=None):
+        if col_obj_filepath is None:
+            col_obj_filepath = obj_filepath
+        import trimesh
+        # color = np.random.uniform(0.6, 1, (4,))
+        # color[-1] = 1
+        # obj_edge_max = 0.15 * scale  # the maximum edge size of an obj before scaling
+        # obj_edge_min = 0.014 * scale  # the minimum edge size of an obj before scaling
+        # obj_volume_max = 0.0006 * (scale ** 3)  # the maximum volume of an obj before scaling
+        obj_scale = scale
+        
+        
+        longest_edge_max = 0.15
+        volume_max = 0.0004
+
+        mesh = trimesh.load(obj_filepath)
+        longest_edge = mesh.bounding_box.extents.max()
+        volume = mesh.volume
+        obj_scale_by_edge = scale * longest_edge_max / longest_edge
+        obj_scale_by_volume = scale * (volume_max/ mesh.volume)**(1/3)
+        obj_scale = np.minimum(obj_scale_by_edge, obj_scale_by_volume)
+        
+        center = mesh.bounding_box.primitive.center
+        #print(str(obj_filepath))
+        # while True:
+        obj_visual = pb.createVisualShape(
+            pb.GEOM_MESH,
+            fileName=str(obj_filepath),
+            rgbaColor=[1,1,1,1],
+            visualFramePosition=-center*obj_scale,
+            meshScale=[obj_scale, obj_scale, obj_scale])
+
+        obj_collision = pb.createCollisionShape(
+            pb.GEOM_MESH,
+            fileName=str(col_obj_filepath),
+            collisionFramePosition=-center*obj_scale,
+            meshScale=[obj_scale, obj_scale, obj_scale])
+
+        object_id = pb.createMultiBody(
+            baseMass=0.1,
+            baseCollisionShapeIndex=obj_collision,
+            baseVisualShapeIndex=obj_visual,
+            basePosition=pose.translation,
+            baseOrientation=pose.rotation.as_quat())
+
+        #     aabb = pb.getAABB(object_id)
+        #     aabb = np.asarray(aabb)
+        #     size = aabb[1] - aabb[0]
+
+        #     if np.partition(size, -2)[-2] > obj_edge_max:
+        #         obj_scale *= 0.8
+        #         pb.removeBody(object_id)
+        #     elif size[0] * size[1] * size[2] > obj_volume_max:
+        #         obj_scale *= 0.85
+        #         pb.removeBody(object_id)
+        #     elif size.min() < obj_edge_min:
+        #         obj_scale /= 0.95
+        #         pb.removeBody(object_id)
+        #     else:
+        #         break
+
+        # pb.changeDynamics(object_id, -1, lateralFriction=0.75, spinningFriction=0.001, rollingFriction=0.001,linearDamping=0.0)
+        return cls(pb, object_id, obj_scale)
+    
     def get_pose(self):
         pos, ori = self.p.getBasePositionAndOrientation(self.uid)
         return Transform(Rotation.from_quat(ori), np.asarray(pos))
