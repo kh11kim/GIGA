@@ -10,7 +10,6 @@ from vgn.utils import btsim, workspace_lines
 from vgn.utils.transform import Rotation, Transform
 from vgn.utils.misc import apply_noise, apply_translational_noise
 
-#from . import GIGA_ROOT
 from icra2025 import ROOT
 
 class ClutterRemovalSim(object):
@@ -204,7 +203,7 @@ class ClutterRemovalSim(object):
 
         bounding_box = o3d.geometry.AxisAlignedBoundingBox(self.lower, self.upper)
         pc = high_res_tsdf.get_cloud()
-        pc = pc.crop(bounding_box)
+        #pc = pc.crop(bounding_box)
         
         if out_others:
             return tsdf, pc, depth_imgs, extrinsics
