@@ -41,11 +41,11 @@ class BtWorld(object):
         self.bodies[body.uid] = body
         return body
 
-    def load_obj(self, obj_path, pose, scale=1.0, col_obj_path=None):
+    def load_obj(self, obj_path, pose, scale=1.0, col_obj_path=None, auto_rescale=False):
         if col_obj_path is None:
             col_obj_path = obj_path
         # the plane don't have mass
-        body = Body.from_obj(self.p, obj_path, pose, scale, col_obj_path)
+        body = Body.from_obj(self.p, obj_path, pose, scale, col_obj_path, autorescale=auto_rescale)
         body.name = obj_path.name
         self.bodies[body.uid] = body
         return body
@@ -145,7 +145,7 @@ class Body(object):
         return cls(physics_client, body_uid, scale)
 
     @classmethod
-    def from_obj(cls, pb, obj_filepath, pose, scale, col_obj_filepath=None):
+    def from_obj(cls, pb, obj_filepath, pose, scale, col_obj_filepath=None, autorescale=False):
         if col_obj_filepath is None:
             col_obj_filepath = obj_filepath
         import trimesh
@@ -156,20 +156,42 @@ class Body(object):
         # obj_volume_max = 0.0006 * (scale ** 3)  # the maximum volume of an obj before scaling
         obj_scale = scale
         
-        
-        longest_edge_max = 0.15
-        volume_max = 0.0004
+        if autorescale:
+            longest_edge_max = 0.20
+            mesh = trimesh.load(obj_filepath)
+            center = mesh.bounding_box.primitive.center
+            mesh = mesh.apply_translation(-center)
+            longest_edge = mesh.bounding_box.extents.max()
+            shortest_edge = mesh.bounding_box.extents.min()
+            
+            for i in range(100):
+                longest_edge_d = np.random.uniform(0.07, longest_edge_max)
+                obj_scale = longest_edge_d / longest_edge
+                if shortest_edge * obj_scale < 0.06: break
+            
+            if i == 99:
+                # maybe a round object
+                edge_d = np.random.uniform(0.05, 0.075)
+                obj_scale = edge_d / shortest_edge
 
-        mesh = trimesh.load(obj_filepath)
-        longest_edge = mesh.bounding_box.extents.max()
-        volume = mesh.volume
-        obj_scale_by_edge = scale * longest_edge_max / longest_edge
-        obj_scale_by_volume = scale * (volume_max/ mesh.volume)**(1/3)
-        obj_scale = np.minimum(obj_scale_by_edge, obj_scale_by_volume)
+            
+            #obj_scale_by_longest_edge = scale * longest_edge_d / longest_edge
+
+        #volume_max = 0.0004
+
         
-        center = mesh.bounding_box.primitive.center
+        #volume = mesh.volume
+        
+        # obj_scale_by_edge = scale * longest_edge_max / longest_edge
+        # obj_scale_by_volume = scale * (volume_max/ mesh.volume)**(1/3)
+        #obj_scale = np.minimum(obj_scale_by_edge, obj_scale_by_volume)
+        #obj_scale = obj_scale_by_edge
+
+        # center = mesh.bounding_box.primitive.center
         #print(str(obj_filepath))
         # while True:
+        # bounding_box.extents.min()
+
         obj_visual = pb.createVisualShape(
             pb.GEOM_MESH,
             fileName=str(obj_filepath),
