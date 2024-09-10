@@ -216,7 +216,10 @@ class ClutterRemovalSim(object):
 
         approach = T_world_grasp.rotation.as_matrix()[:, 2]
         angle = np.arccos(np.dot(approach, np.r_[0.0, 0.0, -1.0]))
-        if angle > np.pi / 3.0:
+        if self.scene == "packed":
+            T_grasp_pregrasp_world = Transform(Rotation.identity(), [0.0, 0.0, 0.1])
+            T_world_retreat = T_grasp_pregrasp_world * T_world_grasp
+        elif angle > np.pi / 3.0:
             # side grasp, lift the object after establishing a grasp
             T_grasp_pregrasp_world = Transform(Rotation.identity(), [0.0, 0.0, 0.1])
             T_world_retreat = T_grasp_pregrasp_world * T_world_grasp
@@ -285,6 +288,7 @@ class ClutterRemovalSim(object):
         # check that the fingers are in contact with some object and not fully closed
         contacts = self.world.get_contacts(gripper.body)
         res = len(contacts) > 0 and gripper.read() > 0.1 * gripper.max_opening_width
+        #print(gripper.read())
         return res
 
 
